@@ -1,1 +1,130 @@
-int main(int argc, char *argv[]) { return 0; }
+#include <glad/gl.h>
+
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
+#include <cstdio>
+#include <iostream>
+
+namespace {
+struct RendererContext {
+  GLFWwindow *window;
+  int WINDOW_WIDTH{1920};
+  int WINDOW_HEIGHT{1080};
+
+  bool vsync{false};
+
+  glm::vec3 skybox{0};
+};
+void glfwErrorCallback(int error, const char *description) {
+  std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
+}
+}; // namespace
+
+int imGuiInitialize(RendererContext &context) {
+
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGui::StyleColorsDark();
+  if (!ImGui_ImplGlfw_InitForOpenGL(context.window, true)) {
+    std::fprintf(stderr, "Failed to initialize ImGui GLFW backend");
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  if (!ImGui_ImplOpenGL3_Init("#version 330 core")) {
+    std::fprintf(stderr, "Failed to initialize ImGui OpenGL");
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  return 1;
+}
+void imGuiDrawFrame(RendererContext &context) {
+  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+
+  ImGui::Begin("Tiny Renderer");
+  ImGui::Text("OpenGL: %s",
+              reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+  ImGui::Checkbox("vsync", &context.vsync);
+  ImGui::Separator();
+  ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
+
+  ImGui::End();
+}
+
+int main(int argc, char *argv[]) {
+  glfwSetErrorCallback(glfwErrorCallback);
+  if (glfwInit() == GLFW_FALSE)
+    return -1;
+
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+  RendererContext context;
+
+  context.window = glfwCreateWindow(context.WINDOW_WIDTH, context.WINDOW_HEIGHT,
+                                    "Tiny Renderer", nullptr, nullptr);
+  if (!context.window) {
+    glfwTerminate();
+    return -1;
+  }
+
+  glfwMakeContextCurrent(context.window);
+  glfwSwapInterval((int)context.vsync);
+
+  if (gladLoadGL(reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)) ==
+      GLFW_FALSE) {
+    std::fprintf(stderr, "Failed to load OpenGL functions\n");
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  if (!imGuiInitialize(context)) {
+    std::fprintf(stderr, "Failed to initialize Im GUI\n");
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  while (!glfwWindowShouldClose(context.window)) {
+    glfwPollEvents();
+
+    imGuiDrawFrame(context);
+    int framebufferWidth{0};
+    int framebufferHeight{0};
+
+    glfwGetFramebufferSize(context.window, &framebufferWidth,
+                           &framebufferHeight);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
+
+    glClearColor(context.skybox.x, context.skybox.y, context.skybox.z, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    glfwSwapBuffers(context.window);
+  }
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+
+  glfwDestroyWindow(context.window);
+  glfwTerminate();
+
+  return 0;
+}
