@@ -7,6 +7,10 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#include "Camera.hpp"
+#include "Model.hpp"
+#include "Shader.h"
+
 #include <cstdio>
 #include <iostream>
 
@@ -19,6 +23,7 @@ struct RendererContext {
   bool vsync{false};
 
   glm::vec3 skybox{0};
+  Camera camera;
 };
 void glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
@@ -59,8 +64,43 @@ void imGuiDrawFrame(RendererContext &context) {
   ImGui::Checkbox("vsync", &context.vsync);
   ImGui::Separator();
   ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
+  ImGui::Separator();
+  ImGui::Text("Camera");
+  ImGui::Text("Left mouse: orbit | Scroll: zoom");
+  ImGui::Text("Distance: %.2f", context.camera.distance());
 
   ImGui::End();
+}
+
+void updateCamera(RendererContext &context) {
+  static double lastMouseX = 0.0;
+  static double lastMouseY = 0.0;
+  static bool hasLastMouse = false;
+
+  double mouseX = 0.0;
+  double mouseY = 0.0;
+  glfwGetCursorPos(context.window, &mouseX, &mouseY);
+
+  if (!hasLastMouse) {
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+    hasLastMouse = true;
+  }
+
+  const ImGuiIO &io = ImGui::GetIO();
+  if (!io.WantCaptureMouse) {
+    if (glfwGetMouseButton(context.window, GLFW_MOUSE_BUTTON_LEFT) ==
+        GLFW_PRESS) {
+      context.camera.orbit(-static_cast<float>(mouseX - lastMouseX),
+                           static_cast<float>(mouseY - lastMouseY));
+    }
+
+    if (io.MouseWheel != 0.0f)
+      context.camera.zoom(io.MouseWheel);
+  }
+
+  lastMouseX = mouseX;
+  lastMouseY = mouseY;
 }
 
 int main(int argc, char *argv[]) {
@@ -99,10 +139,38 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  Shader shader("assets/shaders/basic.vert", "assets/shaders/basic.frag");
+  if (!shader) {
+    std::fprintf(stderr, "Failed to load model shader\n");
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  Model model("assets/models/utah_teapot.obj");
+  if (model.meshes.empty()) {
+    std::fprintf(stderr, "Failed to load model\n");
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(context.window);
+    glfwTerminate();
+    return -1;
+  }
+
+  context.camera = Camera(model.center(), model.radius() * 2.5f);
+
+  glEnable(GL_DEPTH_TEST);
+
   while (!glfwWindowShouldClose(context.window)) {
     glfwPollEvents();
 
     imGuiDrawFrame(context);
+    updateCamera(context);
+
     int framebufferWidth{0};
     int framebufferHeight{0};
 
@@ -111,7 +179,24 @@ int main(int argc, char *argv[]) {
     glViewport(0, 0, framebufferWidth, framebufferHeight);
 
     glClearColor(context.skybox.x, context.skybox.y, context.skybox.z, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    if (framebufferWidth > 0 && framebufferHeight > 0) {
+      const float aspect =
+          static_cast<float>(framebufferWidth) / framebufferHeight;
+
+      shader.use();
+      shader.setMat4("uModel", glm::mat4(1.0f));
+      shader.setMat4("uView", context.camera.view());
+      shader.setMat4("uProjection", context.camera.projection(aspect));
+      shader.setVec3("uViewPosition", context.camera.position());
+      shader.setVec3("uLightDirection",
+                     glm::normalize(glm::vec3(-0.5f, -1.0f, -0.35f)));
+      shader.setVec3("uBaseColor", glm::vec3(0.78f, 0.52f, 0.32f));
+
+      model.draw(shader);
+      shader.unuse();
+    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

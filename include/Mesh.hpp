@@ -17,15 +17,23 @@ struct Vertex {
 
 class Mesh {
 public:
+  Mesh();
   Mesh(vector<Vertex> vertices, vector<unsigned int> indices);
+  ~Mesh();
+
+  Mesh(const Mesh &) = delete;
+  Mesh &operator=(const Mesh &) = delete;
+  Mesh(Mesh &&other) noexcept;
+  Mesh &operator=(Mesh &&other) noexcept;
 
   vector<Vertex> vertices_;
   vector<unsigned int> indices_;
 
   int draw(Shader &shader);
+  void setupMesh();
 
 private:
-  unsigned int vao, vbo, ebo;
+  void release();
 
-  int setupMesh();
+  unsigned int vao{0}, vbo{0}, ebo{0};
 };
