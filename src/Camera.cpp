@@ -31,7 +31,6 @@ glm::vec3 Camera::position() const {
                          cosPitch * std::sin(yaw_));
   return target_ + offset * distance_;
 }
-
 glm::mat4 Camera::view() const {
   return glm::lookAt(position(), target_, glm::vec3(0.0f, 1.0f, 0.0f));
 }

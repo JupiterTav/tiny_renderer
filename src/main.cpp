@@ -8,6 +8,7 @@
 #include "imgui_impl_opengl3.h"
 
 #include "Camera.hpp"
+#include "Frame.hpp"
 #include "Model.hpp"
 #include "Shader.h"
 
@@ -24,6 +25,8 @@ struct RendererContext {
 
   glm::vec3 skybox{0};
   Camera camera;
+  Frame frame;
+  bool loadTexture{true};
 };
 void glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
@@ -61,6 +64,14 @@ void imGuiDrawFrame(RendererContext &context) {
   ImGui::Begin("Tiny Renderer");
   ImGui::Text("OpenGL: %s",
               reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+  ImGui::Text("Statistics");
+  ImGui::Text("FPS: %.0f", context.frame.fps());
+  ImGui::Text("Frame: %.2f ms", context.frame.frameTimeMs());
+  ImGui::Text("Delta: %.2f ms", context.frame.deltaTime() * 1000.0f);
+  ImGui::Text("Frame #: %llu",
+              static_cast<unsigned long long>(context.frame.frameCount()));
+  ImGui::Text("Elapsed: %.1f s", context.frame.elapsedTime());
+  ImGui::Separator();
   ImGui::Checkbox("vsync", &context.vsync);
   ImGui::Separator();
   ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
@@ -153,6 +164,7 @@ int main(int argc, char *argv[]) {
   Model model("assets/models/utah_teapot.obj");
   if (model.meshes.empty()) {
     std::fprintf(stderr, "Failed to load model\n");
+    shader.destroy();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -167,6 +179,7 @@ int main(int argc, char *argv[]) {
 
   while (!glfwWindowShouldClose(context.window)) {
     glfwPollEvents();
+    context.frame.update();
 
     imGuiDrawFrame(context);
     updateCamera(context);
@@ -203,6 +216,9 @@ int main(int argc, char *argv[]) {
 
     glfwSwapBuffers(context.window);
   }
+
+  shader.destroy();
+  model.meshes.clear();
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();

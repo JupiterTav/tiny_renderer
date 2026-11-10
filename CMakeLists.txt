@@ -105,6 +105,7 @@ add_executable(tiny_renderer
     src/Mesh.cpp
     src/Model.cpp
     src/Camera.cpp
+    src/Frame.cpp
     src/stb_impl.cpp
 )
 target_include_directories(tiny_renderer PRIVATE include)
