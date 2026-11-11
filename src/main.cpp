@@ -26,7 +26,7 @@ struct RendererContext {
   glm::vec3 skybox{0};
   Camera camera;
   Frame frame;
-  bool loadTexture{true};
+  bool useTexture{true};
 };
 void glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
@@ -75,6 +75,7 @@ void imGuiDrawFrame(RendererContext &context) {
   ImGui::Checkbox("vsync", &context.vsync);
   ImGui::Separator();
   ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
+  ImGui::Checkbox("Use Texture", &context.useTexture);
   ImGui::Separator();
   ImGui::Text("Camera");
   ImGui::Text("Left mouse: orbit | Scroll: zoom");
@@ -175,6 +176,11 @@ int main(int argc, char *argv[]) {
 
   context.camera = Camera(model.center(), model.radius() * 2.5f);
 
+  if (!model.loadModelTexture("assets/textures/brick.jpg")) {
+    std::fprintf(stderr, "Failed to load brick texture; using base color\n");
+    context.useTexture = false;
+  }
+
   glEnable(GL_DEPTH_TEST);
 
   while (!glfwWindowShouldClose(context.window)) {
@@ -197,6 +203,7 @@ int main(int argc, char *argv[]) {
     if (framebufferWidth > 0 && framebufferHeight > 0) {
       const float aspect =
           static_cast<float>(framebufferWidth) / framebufferHeight;
+      const bool renderTexture = context.useTexture && model.texture.valid();
 
       shader.use();
       shader.setMat4("uModel", glm::mat4(1.0f));
@@ -206,8 +213,17 @@ int main(int argc, char *argv[]) {
       shader.setVec3("uLightDirection",
                      glm::normalize(glm::vec3(-0.5f, -1.0f, -0.35f)));
       shader.setVec3("uBaseColor", glm::vec3(0.78f, 0.52f, 0.32f));
+      shader.setBool("uUseTexture", renderTexture);
+      shader.setInt("uTexture", 0);
+
+      if (renderTexture)
+        model.texture.bind(0);
 
       model.draw(shader);
+
+      if (renderTexture)
+        glBindTexture(GL_TEXTURE_2D, 0);
+
       shader.unuse();
     }
 
@@ -218,6 +234,7 @@ int main(int argc, char *argv[]) {
   }
 
   shader.destroy();
+  model.texture.destroy();
   model.meshes.clear();
 
   ImGui_ImplOpenGL3_Shutdown();

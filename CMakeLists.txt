@@ -104,6 +104,7 @@ add_executable(tiny_renderer
     src/Shader.cpp
     src/Mesh.cpp
     src/Model.cpp
+    src/Texture.cpp
     src/Camera.cpp
     src/Frame.cpp
     src/stb_impl.cpp

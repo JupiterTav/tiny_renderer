@@ -160,3 +160,7 @@ void Model::LoadModel(const std::filesystem::path &path) {
             << " meshes, " << totalVertices << " vertices, " << totalTriangles
             << " triangles)" << std::endl;
 }
+
+bool Model::loadModelTexture(const std::filesystem::path &path) {
+  return texture.load(path);
+}
