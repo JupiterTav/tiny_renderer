@@ -1,4 +1,4 @@
-S# Tiny Renderer
+# Tiny Renderer
 ![](./assets/doc/banner.png)
 Small renderer with some fundamental features and concepts applied.
 
