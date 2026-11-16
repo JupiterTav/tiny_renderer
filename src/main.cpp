@@ -16,6 +16,17 @@
 #include <iostream>
 
 namespace {
+struct AmbientLight {
+  bool useAmbientLight_{true};
+  glm::vec3 ambientLightColor_{1, 1, 1};
+  float ambientLightIntensity_{1};
+};
+
+struct Material {
+  float diffuse;
+  float specular;
+};
+
 struct RendererContext {
   GLFWwindow *window;
   int WINDOW_WIDTH{1920};
@@ -27,7 +38,10 @@ struct RendererContext {
   Camera camera;
   Frame frame;
   bool useTexture{true};
+
+  AmbientLight light_;
 };
+
 void glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
 }
@@ -80,7 +94,11 @@ void imGuiDrawFrame(RendererContext &context) {
   ImGui::Text("Camera");
   ImGui::Text("Left mouse: orbit | Scroll: zoom");
   ImGui::Text("Distance: %.2f", context.camera.distance());
-
+  ImGui::Separator();
+  ImGui::Text("Light");
+  ImGui::Checkbox("Use Ambient Light", &context.light_.useAmbientLight_);
+  ImGui::ColorEdit3("Color", &context.light_.ambientLightColor_.x);
+  ImGui::SliderFloat("Intensity", &context.light_.ambientLightIntensity_, 0, 1);
   ImGui::End();
 }
 
@@ -215,6 +233,10 @@ int main(int argc, char *argv[]) {
       shader.setVec3("uBaseColor", glm::vec3(0.78f, 0.52f, 0.32f));
       shader.setBool("uUseTexture", renderTexture);
       shader.setInt("uTexture", 0);
+      shader.setInt("uUseAmbientLight", (int)context.light_.useAmbientLight_);
+      shader.setVec3("uAmbientLight", context.light_.ambientLightColor_);
+      shader.setFloat("uAmbientLightIntensity",
+                      context.light_.ambientLightIntensity_);
 
       if (renderTexture)
         model.texture.bind(0);
