@@ -10,6 +10,7 @@
 
 #include "Camera.hpp"
 #include "Frame.hpp"
+#include "Light.hpp"
 #include "Model.hpp"
 #include "Shader.h"
 
@@ -19,12 +20,6 @@
 #include <string>
 
 namespace {
-struct AmbientLight {
-  bool useAmbientLight_{true};
-  glm::vec3 ambientLightColor_{1, 1, 1};
-  float ambientLightIntensity_{1};
-};
-
 struct RendererContext {
   GLFWwindow *window;
   int WINDOW_WIDTH{1920};
@@ -43,7 +38,7 @@ struct RendererContext {
   std::string status;
   bool statusIsError{false};
 
-  AmbientLight light_;
+  Light light;
 };
 
 void glfwErrorCallback(int error, const char *description) {
@@ -175,10 +170,14 @@ void imGuiDrawFrame(RendererContext &context) {
                                              : ImVec4(0.4f, 1.0f, 0.4f, 1.0f),
                        "%s", context.status.c_str());
   ImGui::Separator();
-  ImGui::Text("Light");
-  ImGui::Checkbox("Use Ambient Light", &context.light_.useAmbientLight_);
-  ImGui::ColorEdit3("Color", &context.light_.ambientLightColor_.x);
-  ImGui::SliderFloat("Intensity", &context.light_.ambientLightIntensity_, 0, 1);
+  if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::DragFloat3("Direction", &context.light.direction.x, 0.01f);
+    ImGui::ColorEdit3("Color", &context.light.color.x);
+    ImGui::SliderFloat("Intensity", &context.light.intensity, 0.0f, 5.0f);
+    ImGui::Separator();
+    ImGui::SliderFloat("Ambient Intensity", &context.light.ambientContribution,
+                       0, 1);
+  }
   ImGui::End();
 
   drawFileDialogs(context);
@@ -304,13 +303,10 @@ int main(int argc, char *argv[]) {
       shader.setMat4("uView", context.camera.view());
       shader.setMat4("uProjection", context.camera.projection(aspect));
       shader.setVec3("uViewPosition", context.camera.position());
-      shader.setVec3("uLightDirection",
-                     glm::normalize(glm::vec3(-0.5f, -1.0f, -0.35f)));
       shader.setInt("uTexture", 0);
-      shader.setInt("uUseAmbientLight", (int)context.light_.useAmbientLight_);
-      shader.setVec3("uAmbientLight", context.light_.ambientLightColor_);
-      shader.setFloat("uAmbientLightIntensity",
-                      context.light_.ambientLightIntensity_);
+
+      // Direct and ambient light properties are sent as one GLSL struct.
+      context.light.apply(shader);
 
       // Per-mesh material colors and map_Kd textures are applied here.
       context.model.draw(shader, context.useTexture);

@@ -1,0 +1,36 @@
+/**
+ * Custom CSS for the "Petit Renderer" documentation, applied on top of
+ * doxygen-awesome-css.
+ *
+ * Loaded last (see HTML_EXTRA_STYLESHEET in the Doxyfile) so it can override
+ * the theme defaults.
+ */
+
+/* Slightly larger project title and more legible brief in the title bar */
+#projectname {
+    font-size: 180%;
+}
+
+#projectbrief {
+    font-size: 90%;
+    opacity: 0.8;
+}
+
+/* Keep the version number subtle */
+#projectnumber {
+    font-size: 80%;
+    opacity: 0.7;
+}
+
+/* Give code fragments a bit more breathing room */
+dl.section dd,
+div.textblock {
+    line-height: 1.5;
+}
+
+/* Nicer, calmer horizontal rules inside documentation pages */
+hr {
+    border: 0;
+    border-top: 1px solid var(--separator-color);
+    margin: 16px 0;
+}
