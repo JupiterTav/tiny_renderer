@@ -2,8 +2,10 @@
 
 #include <utility>
 
-Mesh::Mesh(vector<Vertex> vertices, vector<unsigned int> indices)
-    : vertices_(std::move(vertices)), indices_(std::move(indices)) {
+Mesh::Mesh(vector<Vertex> vertices, vector<unsigned int> indices,
+           Material material)
+    : vertices_(std::move(vertices)), indices_(std::move(indices)),
+      material(std::move(material)) {
   setupMesh();
 }
 
@@ -13,14 +15,16 @@ Mesh::~Mesh() { release(); }
 
 Mesh::Mesh(Mesh &&other) noexcept
     : vertices_(std::move(other.vertices_)),
-      indices_(std::move(other.indices_)), vao(std::exchange(other.vao, 0)),
-      vbo(std::exchange(other.vbo, 0)), ebo(std::exchange(other.ebo, 0)) {}
+      indices_(std::move(other.indices_)), material(std::move(other.material)),
+      vao(std::exchange(other.vao, 0)), vbo(std::exchange(other.vbo, 0)),
+      ebo(std::exchange(other.ebo, 0)) {}
 
 Mesh &Mesh::operator=(Mesh &&other) noexcept {
   if (this != &other) {
     release();
     vertices_ = std::move(other.vertices_);
     indices_ = std::move(other.indices_);
+    material = std::move(other.material);
     vao = std::exchange(other.vao, 0);
     vbo = std::exchange(other.vbo, 0);
     ebo = std::exchange(other.ebo, 0);

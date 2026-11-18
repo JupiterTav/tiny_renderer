@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include <iostream>
+#include <string>
 
 #include "Shader.h"
 
@@ -15,10 +16,22 @@ struct Vertex {
   glm::vec2 texcoord;
 };
 
+// Material properties from an OBJ's .mtl file. When no MTL is present the
+// default values are used.
+struct Material {
+  string name;
+  int index{-1};
+  glm::vec3 ambientColor{0.0f};
+  glm::vec3 diffuseColor{0.78f, 0.52f, 0.32f};
+  glm::vec3 specularColor{0.25f};
+  float shininess{64.0f};
+};
+
 class Mesh {
 public:
   Mesh();
-  Mesh(vector<Vertex> vertices, vector<unsigned int> indices);
+  Mesh(vector<Vertex> vertices, vector<unsigned int> indices,
+       Material material = {});
   ~Mesh();
 
   Mesh(const Mesh &) = delete;
@@ -28,6 +41,7 @@ public:
 
   vector<Vertex> vertices_;
   vector<unsigned int> indices_;
+  Material material;
 
   int draw(Shader &shader);
   void setupMesh();

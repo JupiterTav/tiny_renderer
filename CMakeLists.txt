@@ -56,7 +56,15 @@ FetchContent_Declare(
     GIT_SHALLOW    FALSE
 )
 
-FetchContent_MakeAvailable(glfw imgui tinyobjloader stb)
+# ImGuiFileDialog (ImGui-based file browser for model/texture loading)
+FetchContent_Declare(
+    imgui_file_dialog
+    GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog.git
+    GIT_TAG        v0.6.8
+    GIT_SHALLOW    TRUE
+)
+
+FetchContent_MakeAvailable(glfw imgui tinyobjloader stb imgui_file_dialog)
 
 # ---------------------------------------------------------------------------
 # GLAD (pre-generated OpenGL 3.3 core loader in external/glad)
@@ -88,6 +96,9 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw glad)
 
+# ImGuiFileDialog uses the ImGui target defined above.
+target_link_libraries(ImGuiFileDialog PUBLIC imgui)
+
 # ---------------------------------------------------------------------------
 # stb headers
 # ---------------------------------------------------------------------------
@@ -114,6 +125,7 @@ target_link_libraries(tiny_renderer PRIVATE
     glfw
     glad
     imgui
+    ImGuiFileDialog
     tinyobjloader
     stb
     OpenGL::GL

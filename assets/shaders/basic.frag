@@ -6,7 +6,9 @@ in vec2 vTexCoord;
 
 uniform vec3 uViewPosition;
 uniform vec3 uLightDirection;
-uniform vec3 uBaseColor;
+uniform vec3 uSpecularColor;
+uniform vec3 uDiffuseColor;
+uniform float uShininess;
 uniform sampler2D uTexture;
 uniform bool uUseTexture;
 
@@ -17,9 +19,9 @@ uniform float uAmbientLightIntensity;
 out vec4 FragColor;
 
 void main() {
-    vec3 ambientLight = uUseAmbientLight == 1 ? uAmbientLight * uAmbientLightIntensity : vec3(1.0f, 1.0f, 1.0f);
+    vec3 albedo = uUseTexture ? texture(uTexture, vTexCoord).rgb : uDiffuseColor;
 
-    vec3 albedo = uUseTexture ? texture(uTexture, vTexCoord).rgb : uBaseColor;
+    vec3 ambientLight = step(1.0, uUseAmbientLight) * uAmbientLightIntensity * uAmbientLight;
 
     vec3 normal = normalize(vNormal);
     vec3 light = normalize(-uLightDirection);
@@ -27,8 +29,8 @@ void main() {
     vec3 halfway = normalize(light + view);
 
     float diffuse = max(dot(normal, light), 0.0);
-    float specular = pow(max(dot(normal, halfway), 0.0), 64.0) * 0.25;
+    vec3 specular = uSpecularColor * pow(max(dot(normal, halfway), 0.0), uShininess);
 
-    vec3 color = (albedo * (0.3 + 0.6 * diffuse) + vec3(specular)) * ambientLight;
+    vec3 color = albedo * (ambientLight + diffuse + specular) * ambientLight;
     FragColor = vec4(color, 1.0);
 }

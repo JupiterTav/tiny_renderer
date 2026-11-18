@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "ImGuiFileDialog.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -13,18 +14,15 @@
 #include "Shader.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <iostream>
+#include <string>
 
 namespace {
 struct AmbientLight {
   bool useAmbientLight_{true};
   glm::vec3 ambientLightColor_{1, 1, 1};
   float ambientLightIntensity_{1};
-};
-
-struct Material {
-  float diffuse;
-  float specular;
 };
 
 struct RendererContext {
@@ -39,11 +37,65 @@ struct RendererContext {
   Frame frame;
   bool useTexture{true};
 
+  Model model;
+  std::string modelPath{"assets/models/utah_teapot.obj"};
+  std::string texturePath{"assets/textures/brick.jpg"};
+  std::string status;
+  bool statusIsError{false};
+
   AmbientLight light_;
 };
 
 void glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
+}
+
+std::string parentPath(const std::filesystem::path &path) {
+  const std::filesystem::path parent = path.parent_path();
+  return parent.empty() ? "." : parent.string();
+}
+
+void loadModel(RendererContext &context, const std::filesystem::path &path) {
+  if (!context.model.load(path)) {
+    context.status = "Failed to load model: " + path.string();
+    context.statusIsError = true;
+    return;
+  }
+
+  context.modelPath = path.string();
+  context.camera =
+      Camera(context.model.center(), context.model.radius() * 2.5f);
+  context.status = "Loaded model: " + path.string();
+  context.statusIsError = false;
+}
+
+void loadTexture(RendererContext &context, const std::filesystem::path &path) {
+  if (!context.model.loadModelTexture(path)) {
+    context.status = "Failed to load texture: " + path.string();
+    context.statusIsError = true;
+    return;
+  }
+
+  context.texturePath = path.string();
+  context.useTexture = true;
+  context.status = "Loaded texture: " + path.string();
+  context.statusIsError = false;
+}
+
+void drawFileDialogs(RendererContext &context) {
+  ImGuiFileDialog *dialog = ImGuiFileDialog::Instance();
+
+  if (dialog->Display("LoadModelDlg")) {
+    if (dialog->IsOk())
+      loadModel(context, dialog->GetFilePathName());
+    dialog->Close();
+  }
+
+  if (dialog->Display("LoadTextureDlg")) {
+    if (dialog->IsOk())
+      loadTexture(context, dialog->GetFilePathName());
+    dialog->Close();
+  }
 }
 }; // namespace
 
@@ -88,18 +140,48 @@ void imGuiDrawFrame(RendererContext &context) {
   ImGui::Separator();
   ImGui::Checkbox("vsync", &context.vsync);
   ImGui::Separator();
-  ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
-  ImGui::Checkbox("Use Texture", &context.useTexture);
-  ImGui::Separator();
   ImGui::Text("Camera");
   ImGui::Text("Left mouse: orbit | Scroll: zoom");
   ImGui::Text("Distance: %.2f", context.camera.distance());
+
+  ImGui::Separator();
+  ImGui::ColorEdit3("Skybox Color", &context.skybox.x);
+  ImGui::Checkbox("Use Texture", &context.useTexture);
+  ImGui::Separator();
+  ImGui::Text("Assets");
+  ImGui::Text("Meshes: %zu | Materials: %zu", context.model.meshes.size(),
+              context.model.materials.size());
+  ImGui::TextWrapped("Model: %s", context.modelPath.c_str());
+  if (ImGui::Button("Load Model...")) {
+    IGFD::FileDialogConfig config;
+    config.path = parentPath(context.modelPath);
+    config.fileName =
+        std::filesystem::path(context.modelPath).filename().string();
+    ImGuiFileDialog::Instance()->OpenDialog("LoadModelDlg", "Choose model",
+                                            ".obj", config);
+  }
+  ImGui::TextWrapped("Texture: %s", context.texturePath.c_str());
+  if (ImGui::Button("Load Texture...")) {
+    IGFD::FileDialogConfig config;
+    config.path = parentPath(context.texturePath);
+    config.fileName =
+        std::filesystem::path(context.texturePath).filename().string();
+    ImGuiFileDialog::Instance()->OpenDialog("LoadTextureDlg", "Choose texture",
+                                            ".png,.jpg,.jpeg,.bmp,.tga",
+                                            config);
+  }
+  if (!context.status.empty())
+    ImGui::TextColored(context.statusIsError ? ImVec4(1.0f, 0.4f, 0.4f, 1.0f)
+                                             : ImVec4(0.4f, 1.0f, 0.4f, 1.0f),
+                       "%s", context.status.c_str());
   ImGui::Separator();
   ImGui::Text("Light");
   ImGui::Checkbox("Use Ambient Light", &context.light_.useAmbientLight_);
   ImGui::ColorEdit3("Color", &context.light_.ambientLightColor_.x);
   ImGui::SliderFloat("Intensity", &context.light_.ambientLightIntensity_, 0, 1);
   ImGui::End();
+
+  drawFileDialogs(context);
 }
 
 void updateCamera(RendererContext &context) {
@@ -180,8 +262,8 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  Model model("assets/models/utah_teapot.obj");
-  if (model.meshes.empty()) {
+  loadModel(context, context.modelPath);
+  if (context.model.meshes.empty()) {
     std::fprintf(stderr, "Failed to load model\n");
     shader.destroy();
     ImGui_ImplOpenGL3_Shutdown();
@@ -192,12 +274,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-  context.camera = Camera(model.center(), model.radius() * 2.5f);
-
-  if (!model.loadModelTexture("assets/textures/brick.jpg")) {
-    std::fprintf(stderr, "Failed to load brick texture; using base color\n");
-    context.useTexture = false;
-  }
+  loadTexture(context, context.texturePath);
 
   glEnable(GL_DEPTH_TEST);
 
@@ -221,7 +298,6 @@ int main(int argc, char *argv[]) {
     if (framebufferWidth > 0 && framebufferHeight > 0) {
       const float aspect =
           static_cast<float>(framebufferWidth) / framebufferHeight;
-      const bool renderTexture = context.useTexture && model.texture.valid();
 
       shader.use();
       shader.setMat4("uModel", glm::mat4(1.0f));
@@ -230,21 +306,14 @@ int main(int argc, char *argv[]) {
       shader.setVec3("uViewPosition", context.camera.position());
       shader.setVec3("uLightDirection",
                      glm::normalize(glm::vec3(-0.5f, -1.0f, -0.35f)));
-      shader.setVec3("uBaseColor", glm::vec3(0.78f, 0.52f, 0.32f));
-      shader.setBool("uUseTexture", renderTexture);
       shader.setInt("uTexture", 0);
       shader.setInt("uUseAmbientLight", (int)context.light_.useAmbientLight_);
       shader.setVec3("uAmbientLight", context.light_.ambientLightColor_);
       shader.setFloat("uAmbientLightIntensity",
                       context.light_.ambientLightIntensity_);
 
-      if (renderTexture)
-        model.texture.bind(0);
-
-      model.draw(shader);
-
-      if (renderTexture)
-        glBindTexture(GL_TEXTURE_2D, 0);
+      // Per-mesh material colors and map_Kd textures are applied here.
+      context.model.draw(shader, context.useTexture);
 
       shader.unuse();
     }
@@ -256,8 +325,6 @@ int main(int argc, char *argv[]) {
   }
 
   shader.destroy();
-  model.texture.destroy();
-  model.meshes.clear();
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();

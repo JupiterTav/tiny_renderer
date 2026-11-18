@@ -53,7 +53,7 @@ bool Texture::load(const std::filesystem::path &path) {
   const int channels = nrChannels_;
 
   GLenum format = GL_RGB;
-  GLint internalFormat = GL_RGB8;
+  GLint internalFormat = GL_SRGB8;
   switch (channels) {
   case 1:
     format = GL_RED;
@@ -63,13 +63,15 @@ bool Texture::load(const std::filesystem::path &path) {
     format = GL_RG;
     internalFormat = GL_RG8;
     break;
+  // Color images are stored in sRGB; OpenGL converts them to linear when
+  // sampled, which matches the gamma correction in the fragment shader.
   case 3:
     format = GL_RGB;
-    internalFormat = GL_RGB8;
+    internalFormat = GL_SRGB8;
     break;
   case 4:
     format = GL_RGBA;
-    internalFormat = GL_RGBA8;
+    internalFormat = GL_SRGB8_ALPHA8;
     break;
   default:
     std::cerr << "Texture::Error::unsupported channel count " << channels
@@ -123,4 +125,7 @@ void Texture::bind(unsigned int unit) const {
   glBindTexture(GL_TEXTURE_2D, textureID);
 }
 
-void Texture::unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
+void Texture::unbind() const {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
