@@ -16,6 +16,10 @@ in vec2 vTexCoord;
 
 uniform vec3 uViewPosition;
 
+// Used to draw the light-position marker as a flat, unlit color.
+uniform bool uUnlit;
+uniform vec3 uOverrideColor;
+
 uniform vec3 uAmbientColor; // MTL Ka
 uniform vec3 uDiffuseColor; // MTL Kd
 uniform vec3 uSpecularColor; // MTL Ks
@@ -44,5 +48,6 @@ void main() {
     // Gamma correction:
     // Textures are uploaded as sRGB and sampled in linear space, so encode
     // the final color back to sRGB for the default framebuffer.
-    FragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
+    FragColor = uUnlit ? vec4(uOverrideColor, 1.0)
+                       : vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
 }

@@ -13,6 +13,8 @@ struct Light {
   float intensity{1.0f};
   float ambientContribution{0.3f};
 
+  bool showPositionMarker{true};
+
   void apply(Shader &shader) const {
     shader.setVec3("uLight.direction", direction);
     shader.setVec3("uLight.color", color);

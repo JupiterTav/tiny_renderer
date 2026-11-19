@@ -2,6 +2,7 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "ImGuiFileDialog.h"
 #include "imgui.h"
@@ -33,6 +34,7 @@ struct RendererContext {
   bool useTexture{true};
 
   Model model;
+  Model lightSphere; // visual marker for the light position
   std::string modelPath{"assets/models/chinese-dragon.obj"};
   std::string texturePath{"assets/textures/Image_0.jpg"};
   std::string status;
@@ -176,6 +178,15 @@ void imGuiDrawFrame(RendererContext &context) {
       ImGui::DragFloat3("Direction", &context.light.direction.x, 0.01f);
       ImGui::ColorEdit3("Color", &context.light.color.x);
       ImGui::SliderFloat("Intensity", &context.light.intensity, 0.0f, 5.0f);
+
+      ImGui::Checkbox("Show Marker", &context.light.showPositionMarker);
+      if (!context.model.meshes.empty()) {
+        const glm::vec3 markerPosition =
+            context.model.center() -
+            glm::normalize(context.light.direction) * context.model.radius();
+        ImGui::Text("Position: %.2f, %.2f, %.2f", markerPosition.x,
+                    markerPosition.y, markerPosition.z);
+      }
     }
     if (ImGui::CollapsingHeader("Ambient Light",
                                 ImGuiTreeNodeFlags_DefaultOpen))
@@ -280,6 +291,9 @@ int main(int argc, char *argv[]) {
 
   loadTexture(context, context.texturePath);
 
+  if (!context.lightSphere.load("assets/models/sphere.obj"))
+    std::fprintf(stderr, "Failed to load light marker sphere\n");
+
   glEnable(GL_DEPTH_TEST);
 
   while (!glfwWindowShouldClose(context.window)) {
@@ -309,12 +323,33 @@ int main(int argc, char *argv[]) {
       shader.setMat4("uProjection", context.camera.projection(aspect));
       shader.setVec3("uViewPosition", context.camera.position());
       shader.setInt("uTexture", 0);
+      shader.setBool("uUnlit", false);
 
       // Direct and ambient light properties are sent as one GLSL struct.
       context.light.apply(shader);
 
       // Per-mesh material colors and map_Kd textures are applied here.
       context.model.draw(shader, context.useTexture);
+
+      // Draw a small unlit sphere as a visual marker for the light. The shader
+      // treats `direction` as the way light travels, so the source sits in the
+      // opposite direction from the model, one model-radius away.
+      if (context.light.showPositionMarker &&
+          !context.lightSphere.meshes.empty() &&
+          !context.model.meshes.empty()) {
+        const glm::vec3 markerPosition =
+            context.model.center() -
+            glm::normalize(context.light.direction) * context.model.radius();
+        const float scale = 0.02f; // radius 10 -> 0.2 world units
+        const glm::mat4 markerModel = glm::translate(
+            glm::mat4(1.0f),
+            markerPosition - context.lightSphere.center() * scale);
+        shader.setMat4("uModel", glm::scale(markerModel, glm::vec3(scale)));
+        shader.setBool("uUnlit", true);
+        shader.setVec3("uOverrideColor", context.light.color);
+        context.lightSphere.draw(shader, false);
+        shader.setBool("uUnlit", false);
+      }
 
       shader.unuse();
     }
