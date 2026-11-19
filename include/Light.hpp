@@ -11,7 +11,7 @@ struct Light {
   glm::vec3 direction{-0.5f, -1.0f, -0.35f};
   glm::vec3 color{1.0f};
   float intensity{1.0f};
-  float ambientContribution;
+  float ambientContribution{0.3f};
 
   void apply(Shader &shader) const {
     shader.setVec3("uLight.direction", direction);

@@ -33,8 +33,8 @@ struct RendererContext {
   bool useTexture{true};
 
   Model model;
-  std::string modelPath{"assets/models/utah_teapot.obj"};
-  std::string texturePath{"assets/textures/brick.jpg"};
+  std::string modelPath{"assets/models/chinese-dragon.obj"};
+  std::string texturePath{"assets/textures/Image_0.jpg"};
   std::string status;
   bool statusIsError{false};
 
@@ -171,12 +171,17 @@ void imGuiDrawFrame(RendererContext &context) {
                        "%s", context.status.c_str());
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
-    ImGui::DragFloat3("Direction", &context.light.direction.x, 0.01f);
-    ImGui::ColorEdit3("Color", &context.light.color.x);
-    ImGui::SliderFloat("Intensity", &context.light.intensity, 0.0f, 5.0f);
+    if (ImGui::CollapsingHeader("Directional Light",
+                                ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::DragFloat3("Direction", &context.light.direction.x, 0.01f);
+      ImGui::ColorEdit3("Color", &context.light.color.x);
+      ImGui::SliderFloat("Intensity", &context.light.intensity, 0.0f, 5.0f);
+    }
+    if (ImGui::CollapsingHeader("Ambient Light",
+                                ImGuiTreeNodeFlags_DefaultOpen))
+      ImGui::SliderFloat("Ambient Intensity",
+                         &context.light.ambientContribution, 0, 1);
     ImGui::Separator();
-    ImGui::SliderFloat("Ambient Intensity", &context.light.ambientContribution,
-                       0, 1);
   }
   ImGui::End();
 

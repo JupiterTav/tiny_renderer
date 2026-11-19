@@ -27,23 +27,22 @@ uniform bool uUseTexture;
 out vec4 FragColor;
 
 void main() {
-    vec3 N = normalize(vNormal);
-    vec3 L = normalize(-uLight.direction);
-    vec3 V = normalize(uViewPosition - vWorldPosition);
+    vec3 normal = normalize(vNormal);
+    vec3 light = normalize(-uLight.direction);
+    vec3 eye = normalize(uViewPosition - vWorldPosition);
 
-    vec3 H = L + V;
-    float hLength = length(H);
-    H = hLength > 0.0 ? H / hLength : N;
+    vec3 halfway = normalize(light + eye);
 
     vec3 albedo = uUseTexture ? texture(uTexture, vTexCoord).rgb : uDiffuseColor;
 
-    float NdotL = max(dot(N, L), 0.0);
+    float NdotL = max(dot(normal, light), 0.0);
     float specular = NdotL > 0.0
-        ? pow(max(dot(N, H), 0.0), uShininess) : 0.0;
+        ? pow(max(dot(normal, halfway), 0.0), uShininess) : 0.0;
 
-    vec3 direct = (((uLight.ambientContribution + uAmbientColor) * albedo) + (NdotL * albedo) + (uSpecularColor * specular)) * (uLight.color * uLight.intensity);
+    vec3 color = (uLight.ambientContribution * albedo) + ((uAmbientColor * NdotL * albedo) + (uSpecularColor * specular * albedo)) * (uLight.color * uLight.intensity);
 
+    // Gamma correction:
     // Textures are uploaded as sRGB and sampled in linear space, so encode
     // the final color back to sRGB for the default framebuffer.
-    FragColor = vec4(pow(direct, vec3(1.0 / 2.2)), 1.0);
+    FragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
 }
