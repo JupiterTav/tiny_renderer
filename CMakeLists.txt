@@ -112,6 +112,8 @@ target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 
 add_executable(tiny_renderer
     src/main.cpp
+    src/Application.cpp
+    src/ImGuiLayer.cpp
     src/Shader.cpp
     src/Mesh.cpp
     src/Model.cpp

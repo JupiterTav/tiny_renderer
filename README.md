@@ -1,13 +1,17 @@
 # Tiny Renderer
 ![](./assets/doc/banner.png)
 Small renderer with some fundamental features and concepts applied.
-
+### WIP
 ## Summary
 [1.Requirements](#Requiments)
 
 [2.Build](#Build)
 
 [3.Camera](#Camera)
+
+[4.Texture](#Texture)
+
+[5.Shading](#Shading)
 
 -----
 ### 1.Requirements
