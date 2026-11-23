@@ -32,7 +32,7 @@ Texture &Texture::operator=(Texture &&other) noexcept {
   return *this;
 }
 
-bool Texture::load(const std::filesystem::path &path) {
+bool Texture::load(const std::filesystem::path &path, bool srgb) {
   const std::string pathString = path.string();
 
   // OpenGL texture coordinates start at the bottom-left, while image files
@@ -53,7 +53,7 @@ bool Texture::load(const std::filesystem::path &path) {
   const int channels = nrChannels_;
 
   GLenum format = GL_RGB;
-  GLint internalFormat = GL_SRGB8;
+  GLint internalFormat = srgb ? GL_SRGB8 : GL_RGB8;
   switch (channels) {
   case 1:
     format = GL_RED;
@@ -65,13 +65,14 @@ bool Texture::load(const std::filesystem::path &path) {
     break;
   // Color images are stored in sRGB; OpenGL converts them to linear when
   // sampled, which matches the gamma correction in the fragment shader.
+  // Data maps (metallic, roughness, ...) are already linear.
   case 3:
     format = GL_RGB;
-    internalFormat = GL_SRGB8;
+    internalFormat = srgb ? GL_SRGB8 : GL_RGB8;
     break;
   case 4:
     format = GL_RGBA;
-    internalFormat = GL_SRGB8_ALPHA8;
+    internalFormat = srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
     break;
   default:
     std::cerr << "Texture::Error::unsupported channel count " << channels

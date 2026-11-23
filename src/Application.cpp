@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <utility>
 
 void Application::glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
@@ -45,8 +46,7 @@ bool Application::initialize() {
     return false;
   }
 
-  if (!shader_.load("assets/shaders/basic.vert",
-                    "assets/shaders/basic.frag")) {
+  if (!shader_.load("assets/shaders/basic.vert", "assets/shaders/basic.frag")) {
     std::fprintf(stderr, "Failed to load model shader\n");
     return false;
   }
@@ -58,16 +58,23 @@ bool Application::initialize() {
   }
 
   loadTexture(state_.texturePath);
+  loadMetallicMap(state_.metallicMapPath);
+  loadRoughnessMap(state_.roughnessMapPath);
+  loadNormalMap(state_.normalMapPath);
 
   if (!state_.lightSphere.load("assets/models/sphere.obj"))
     std::fprintf(stderr, "Failed to load light marker sphere\n");
 
-  ui_.setModelLoader([this](const std::filesystem::path &path) {
-    loadModel(path);
-  });
-  ui_.setTextureLoader([this](const std::filesystem::path &path) {
-    loadTexture(path);
-  });
+  ui_.setModelLoader(
+      [this](const std::filesystem::path &path) { loadModel(path); });
+  ui_.setTextureLoader(
+      [this](const std::filesystem::path &path) { loadTexture(path); });
+  ui_.setMetallicLoader(
+      [this](const std::filesystem::path &path) { loadMetallicMap(path); });
+  ui_.setRoughnessLoader(
+      [this](const std::filesystem::path &path) { loadRoughnessMap(path); });
+  ui_.setNormalLoader(
+      [this](const std::filesystem::path &path) { loadNormalMap(path); });
 
   glEnable(GL_DEPTH_TEST);
   initialized_ = true;
@@ -97,8 +104,7 @@ void Application::loadModel(const std::filesystem::path &path) {
   }
 
   state_.modelPath = path.string();
-  state_.camera =
-      Camera(state_.model.center(), state_.model.radius() * 2.5f);
+  state_.camera = Camera(state_.model.center(), state_.model.radius() * 2.5f);
   state_.status = "Loaded model: " + path.string();
   state_.statusIsError = false;
 }
@@ -114,6 +120,47 @@ void Application::loadTexture(const std::filesystem::path &path) {
   state_.useTexture = true;
   state_.status = "Loaded texture: " + path.string();
   state_.statusIsError = false;
+}
+
+// Data maps must stay linear; sRGB decoding would distort their values.
+static bool loadDataMap(Texture &target, const std::filesystem::path &path,
+                        std::string &status, bool &statusIsError,
+                        const char *label) {
+  Texture newMap;
+  if (!newMap.load(path, false)) {
+    status = std::string("Failed to load ") + label + ": " + path.string();
+    statusIsError = true;
+    return false;
+  }
+
+  target = std::move(newMap);
+  status = std::string("Loaded ") + label + ": " + path.string();
+  statusIsError = false;
+  return true;
+}
+
+void Application::loadMetallicMap(const std::filesystem::path &path) {
+  if (loadDataMap(state_.metallicMap, path, state_.status, state_.statusIsError,
+                  "metallic map")) {
+    state_.metallicMapPath = path.string();
+    state_.useMetallicMap = true;
+  }
+}
+
+void Application::loadRoughnessMap(const std::filesystem::path &path) {
+  if (loadDataMap(state_.roughnessMap, path, state_.status,
+                  state_.statusIsError, "roughness map")) {
+    state_.roughnessMapPath = path.string();
+    state_.useRoughnessMap = true;
+  }
+}
+
+void Application::loadNormalMap(const std::filesystem::path &path) {
+  if (loadDataMap(state_.normalMap, path, state_.status, state_.statusIsError,
+                  "normal map")) {
+    state_.normalMapPath = path.string();
+    state_.useNormalMap = true;
+  }
 }
 
 void Application::updateCamera() {
@@ -151,7 +198,31 @@ void Application::renderScene(int width, int height) {
   shader_.setMat4("uProjection", state_.camera.projection(aspect));
   shader_.setVec3("uViewPosition", state_.camera.position());
   shader_.setInt("uTexture", 0);
+  shader_.setInt("uMetallicMap", 1);
+  shader_.setInt("uRoughnessMap", 2);
+  shader_.setInt("uNormalMap", 3);
   shader_.setBool("uUnlit", false);
+
+  const bool useMetallicMap =
+      state_.useMetallicMap && state_.metallicMap.valid();
+  const bool useRoughnessMap =
+      state_.useRoughnessMap && state_.roughnessMap.valid();
+  const bool useNormalMap = state_.useNormalMap && state_.normalMap.valid();
+  shader_.setBool("uUseMetallicMap", useMetallicMap);
+  shader_.setBool("uUseRoughnessMap", useRoughnessMap);
+  shader_.setBool("uUseNormalMap", useNormalMap);
+  if (useMetallicMap) {
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, state_.metallicMap.getTexture());
+  }
+  if (useRoughnessMap) {
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, state_.roughnessMap.getTexture());
+  }
+  if (useNormalMap) {
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, state_.normalMap.getTexture());
+  }
 
   // Direct and ambient light properties are sent as one GLSL struct.
   state_.light.apply(shader_);
@@ -162,12 +233,12 @@ void Application::renderScene(int width, int height) {
   // Draw a small unlit sphere as a visual marker for the light. The shader
   // treats `direction` as the way light travels, so the source sits in the
   // opposite direction from the model, one model-radius away.
-  if (state_.light.showPositionMarker &&
-      !state_.lightSphere.meshes.empty() && !state_.model.meshes.empty()) {
+  if (state_.light.showPositionMarker && !state_.lightSphere.meshes.empty() &&
+      !state_.model.meshes.empty()) {
     const glm::vec3 markerPosition =
         state_.model.center() -
         glm::normalize(state_.light.direction) * state_.model.radius();
-    const float scale = 0.02f;  // radius 10 -> 0.2 world units
+    const float scale = 0.02f; // radius 10 -> 0.2 world units
     const glm::mat4 markerModel = glm::translate(
         glm::mat4(1.0f), markerPosition - state_.lightSphere.center() * scale);
     shader_.setMat4("uModel", glm::scale(markerModel, glm::vec3(scale)));
@@ -176,6 +247,20 @@ void Application::renderScene(int width, int height) {
     state_.lightSphere.draw(shader_, false);
     shader_.setBool("uUnlit", false);
   }
+
+  if (useMetallicMap) {
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+  if (useRoughnessMap) {
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+  if (useNormalMap) {
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, 0);
+  }
+  glActiveTexture(GL_TEXTURE0);
 
   shader_.unuse();
 }
@@ -188,7 +273,8 @@ int Application::run() {
     glfwPollEvents();
     state_.frame.update();
 
-    // Apply the ImGui vsync checkbox every frame so it takes effect immediately.
+    // Apply the ImGui vsync checkbox every frame so it takes effect
+    // immediately.
     glfwSwapInterval(state_.vsync ? 1 : 0);
 
     ui_.beginFrame();

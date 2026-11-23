@@ -42,6 +42,7 @@ void Model::draw(Shader &shader, bool useTexture) {
     shader.setFloat("uShininess", mesh.material.shininess);
 
     const Texture *materialTexture = nullptr;
+    std::cout << "Mesh::Material::Name: " << mesh.material.name << std::endl;
     if (useTexture && mesh.material.index >= 0 &&
         static_cast<std::size_t>(mesh.material.index) <
             materialTextures.size()) {

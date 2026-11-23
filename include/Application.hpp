@@ -27,6 +27,9 @@ private:
 
   void loadModel(const std::filesystem::path &path);
   void loadTexture(const std::filesystem::path &path);
+  void loadMetallicMap(const std::filesystem::path &path);
+  void loadRoughnessMap(const std::filesystem::path &path);
+  void loadNormalMap(const std::filesystem::path &path);
 
   static void glfwErrorCallback(int error, const char *description);
 

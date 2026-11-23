@@ -65,13 +65,6 @@ void ImGuiLayer::draw() {
   ImGui::Text("OpenGL: %s",
               reinterpret_cast<const char *>(glGetString(GL_VERSION)));
 
-  ImGui::Text("Statistics");
-  ImGui::Text("FPS: %.0f", state_.frame.fps());
-  ImGui::Text("Frame: %.2f ms", state_.frame.frameTimeMs());
-  ImGui::Text("Delta: %.2f ms", state_.frame.deltaTime() * 1000.0f);
-  ImGui::Text("Frame #: %llu",
-              static_cast<unsigned long long>(state_.frame.frameCount()));
-  ImGui::Text("Elapsed: %.1f s", state_.frame.elapsedTime());
   ImGui::Separator();
 
   ImGui::Checkbox("vsync", &state_.vsync);
@@ -108,6 +101,42 @@ void ImGuiLayer::draw() {
     ImGuiFileDialog::Instance()->OpenDialog("LoadTextureDlg", "Choose texture",
                                             ".png,.jpg,.jpeg,.bmp,.tga",
                                             config);
+  }
+
+  ImGui::Checkbox("Use Metallic Map", &state_.useMetallicMap);
+  ImGui::TextWrapped("Metallic: %s", state_.metallicMapPath.c_str());
+  if (ImGui::Button("Load Metallic Map...")) {
+    IGFD::FileDialogConfig config;
+    config.path = parentPath(state_.metallicMapPath);
+    config.fileName =
+        std::filesystem::path(state_.metallicMapPath).filename().string();
+    ImGuiFileDialog::Instance()->OpenDialog(
+        "LoadMetallicDlg", "Choose metallic map", ".png,.jpg,.jpeg,.bmp,.tga",
+        config);
+  }
+
+  ImGui::Checkbox("Use Roughness Map", &state_.useRoughnessMap);
+  ImGui::TextWrapped("Roughness: %s", state_.roughnessMapPath.c_str());
+  if (ImGui::Button("Load Roughness Map...")) {
+    IGFD::FileDialogConfig config;
+    config.path = parentPath(state_.roughnessMapPath);
+    config.fileName =
+        std::filesystem::path(state_.roughnessMapPath).filename().string();
+    ImGuiFileDialog::Instance()->OpenDialog(
+        "LoadRoughnessDlg", "Choose roughness map", ".png,.jpg,.jpeg,.bmp,.tga",
+        config);
+  }
+
+  ImGui::Checkbox("Use Normal Map", &state_.useNormalMap);
+  ImGui::TextWrapped("Normal: %s", state_.normalMapPath.c_str());
+  if (ImGui::Button("Load Normal Map...")) {
+    IGFD::FileDialogConfig config;
+    config.path = parentPath(state_.normalMapPath);
+    config.fileName =
+        std::filesystem::path(state_.normalMapPath).filename().string();
+    ImGuiFileDialog::Instance()->OpenDialog(
+        "LoadNormalDlg", "Choose normal map", ".png,.jpg,.jpeg,.bmp,.tga",
+        config);
   }
 
   if (!state_.status.empty())
@@ -160,6 +189,24 @@ void ImGuiLayer::drawFileDialogs() {
   if (dialog->Display("LoadTextureDlg")) {
     if (dialog->IsOk() && textureLoader_)
       textureLoader_(dialog->GetFilePathName());
+    dialog->Close();
+  }
+
+  if (dialog->Display("LoadMetallicDlg")) {
+    if (dialog->IsOk() && metallicLoader_)
+      metallicLoader_(dialog->GetFilePathName());
+    dialog->Close();
+  }
+
+  if (dialog->Display("LoadRoughnessDlg")) {
+    if (dialog->IsOk() && roughnessLoader_)
+      roughnessLoader_(dialog->GetFilePathName());
+    dialog->Close();
+  }
+
+  if (dialog->Display("LoadNormalDlg")) {
+    if (dialog->IsOk() && normalLoader_)
+      normalLoader_(dialog->GetFilePathName());
     dialog->Close();
   }
 }

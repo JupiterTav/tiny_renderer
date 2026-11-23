@@ -15,7 +15,9 @@ public:
   Texture(Texture &&other) noexcept;
   Texture &operator=(Texture &&other) noexcept;
 
-  bool load(const std::filesystem::path &path);
+  // Color images should use sRGB (the default); data maps such as metallic
+  // or roughness must be loaded as linear values.
+  bool load(const std::filesystem::path &path, bool srgb = true);
   void destroy();
 
   void bind(unsigned int unit = 0) const;
