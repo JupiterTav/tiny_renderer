@@ -7,13 +7,35 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <string>
 #include <utility>
+
+namespace {
+std::filesystem::path executableDirectory(const char *executablePath) {
+#ifdef __linux__
+  std::error_code error;
+  const std::filesystem::path self =
+      std::filesystem::read_symlink("/proc/self/exe", error);
+  if (!error)
+    return self.parent_path();
+#endif
+
+  if (!executablePath || !*executablePath)
+    return {};
+
+  std::error_code absoluteError;
+  const std::filesystem::path path =
+      std::filesystem::absolute(executablePath, absoluteError);
+  return absoluteError ? std::filesystem::path{} : path.parent_path();
+}
+} // namespace
 
 void Application::glfwErrorCallback(int error, const char *description) {
   std::fprintf(stderr, "GLFW::Error::%d: %s\n", error, description);
 }
 
-Application::Application() = default;
+Application::Application(const char *executablePath)
+    : executableDir_(executableDirectory(executablePath)) {}
 
 Application::~Application() { shutdown(); }
 
@@ -46,7 +68,8 @@ bool Application::initialize() {
     return false;
   }
 
-  if (!shader_.load("assets/shaders/basic.vert", "assets/shaders/basic.frag")) {
+  if (!shader_.load(resolveAssetPath("assets/shaders/basic.vert"),
+                    resolveAssetPath("assets/shaders/basic.frag"))) {
     std::fprintf(stderr, "Failed to load model shader\n");
     return false;
   }
@@ -62,7 +85,7 @@ bool Application::initialize() {
   loadRoughnessMap(state_.roughnessMapPath);
   loadNormalMap(state_.normalMapPath);
 
-  if (!state_.lightSphere.load("assets/models/sphere.obj"))
+  if (!state_.lightSphere.load(resolveAssetPath("assets/models/sphere.obj")))
     std::fprintf(stderr, "Failed to load light marker sphere\n");
 
   ui_.setModelLoader(
@@ -75,6 +98,7 @@ bool Application::initialize() {
       [this](const std::filesystem::path &path) { loadRoughnessMap(path); });
   ui_.setNormalLoader(
       [this](const std::filesystem::path &path) { loadNormalMap(path); });
+  ui_.setQuitCallback([this] { requestQuit(); });
 
   glEnable(GL_DEPTH_TEST);
   initialized_ = true;
@@ -96,29 +120,50 @@ void Application::shutdown() {
   initialized_ = false;
 }
 
+void Application::requestQuit() {
+  if (window_)
+    glfwSetWindowShouldClose(window_, GLFW_TRUE);
+}
+
+std::filesystem::path
+Application::resolveAssetPath(const std::filesystem::path &path) const {
+  if (path.is_absolute() || executableDir_.empty())
+    return path;
+
+  // Packaged builds keep assets next to the executable. Development builds may
+  // still run with the repository root as the working directory.
+  const std::filesystem::path executableRelative = executableDir_ / path;
+  std::error_code error;
+  if (std::filesystem::exists(executableRelative, error))
+    return executableRelative;
+  return path;
+}
+
 void Application::loadModel(const std::filesystem::path &path) {
-  if (!state_.model.load(path)) {
-    state_.status = "Failed to load model: " + path.string();
+  const std::filesystem::path resolved = resolveAssetPath(path);
+  if (!state_.model.load(resolved)) {
+    state_.status = "Failed to load model: " + resolved.string();
     state_.statusIsError = true;
     return;
   }
 
-  state_.modelPath = path.string();
+  state_.modelPath = resolved.string();
   state_.camera = Camera(state_.model.center(), state_.model.radius() * 2.5f);
-  state_.status = "Loaded model: " + path.string();
+  state_.status = "Loaded model: " + resolved.string();
   state_.statusIsError = false;
 }
 
 void Application::loadTexture(const std::filesystem::path &path) {
-  if (!state_.model.loadModelTexture(path)) {
-    state_.status = "Failed to load texture: " + path.string();
+  const std::filesystem::path resolved = resolveAssetPath(path);
+  if (!state_.model.loadModelTexture(resolved)) {
+    state_.status = "Failed to load texture: " + resolved.string();
     state_.statusIsError = true;
     return;
   }
 
-  state_.texturePath = path.string();
+  state_.texturePath = resolved.string();
   state_.useTexture = true;
-  state_.status = "Loaded texture: " + path.string();
+  state_.status = "Loaded texture: " + resolved.string();
   state_.statusIsError = false;
 }
 
@@ -140,25 +185,28 @@ static bool loadDataMap(Texture &target, const std::filesystem::path &path,
 }
 
 void Application::loadMetallicMap(const std::filesystem::path &path) {
-  if (loadDataMap(state_.metallicMap, path, state_.status, state_.statusIsError,
-                  "metallic map")) {
-    state_.metallicMapPath = path.string();
+  const std::filesystem::path resolved = resolveAssetPath(path);
+  if (loadDataMap(state_.metallicMap, resolved, state_.status,
+                  state_.statusIsError, "metallic map")) {
+    state_.metallicMapPath = resolved.string();
     state_.useMetallicMap = true;
   }
 }
 
 void Application::loadRoughnessMap(const std::filesystem::path &path) {
-  if (loadDataMap(state_.roughnessMap, path, state_.status,
+  const std::filesystem::path resolved = resolveAssetPath(path);
+  if (loadDataMap(state_.roughnessMap, resolved, state_.status,
                   state_.statusIsError, "roughness map")) {
-    state_.roughnessMapPath = path.string();
+    state_.roughnessMapPath = resolved.string();
     state_.useRoughnessMap = true;
   }
 }
 
 void Application::loadNormalMap(const std::filesystem::path &path) {
-  if (loadDataMap(state_.normalMap, path, state_.status, state_.statusIsError,
-                  "normal map")) {
-    state_.normalMapPath = path.string();
+  const std::filesystem::path resolved = resolveAssetPath(path);
+  if (loadDataMap(state_.normalMap, resolved, state_.status,
+                  state_.statusIsError, "normal map")) {
+    state_.normalMapPath = resolved.string();
     state_.useNormalMap = true;
   }
 }

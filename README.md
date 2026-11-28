@@ -24,6 +24,14 @@ A Small OpenGL renderer to study and apply some concepts
     cmake -S . -B build
     cmake --build build/ -j
     ./build/tiny_renderer
+
+*Windows (cross-compile from Linux with MinGW-w64):*
+
+    cmake -S . -B build-windows -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake
+    cmake --build build-windows/ -j
+
+The executable is `build-windows/tiny_renderer.exe`; keep the `assets/` folder
+next to it when running on Windows.
 -----
 
 ### 3.Pictures

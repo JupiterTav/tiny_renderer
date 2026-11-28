@@ -13,6 +13,7 @@ struct GLFWwindow;
 class ImGuiLayer {
 public:
   using LoadCallback = std::function<void(const std::filesystem::path &)>;
+  using ActionCallback = std::function<void()>;
 
   explicit ImGuiLayer(AppState &state);
   ~ImGuiLayer();
@@ -42,6 +43,9 @@ public:
   void setNormalLoader(LoadCallback callback) {
     normalLoader_ = std::move(callback);
   }
+  void setQuitCallback(ActionCallback callback) {
+    quitCallback_ = std::move(callback);
+  }
 
   // Camera input needs to ignore events consumed by ImGui widgets.
   bool wantsCaptureMouse() const;
@@ -56,5 +60,6 @@ private:
   LoadCallback metallicLoader_;
   LoadCallback roughnessLoader_;
   LoadCallback normalLoader_;
+  ActionCallback quitCallback_;
   bool initialized_{false};
 };

@@ -61,6 +61,15 @@ void ImGuiLayer::beginFrame() {
 }
 
 void ImGuiLayer::draw() {
+  if (ImGui::BeginMainMenuBar()) {
+    if (ImGui::BeginMenu("Menu")) {
+      if (ImGui::MenuItem("Quit") && quitCallback_)
+        quitCallback_();
+      ImGui::EndMenu();
+    }
+    ImGui::EndMainMenuBar();
+  }
+
   ImGui::Begin("Tiny Renderer");
   ImGui::Text("OpenGL: %s",
               reinterpret_cast<const char *>(glGetString(GL_VERSION)));

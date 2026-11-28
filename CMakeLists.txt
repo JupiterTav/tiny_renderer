@@ -64,7 +64,16 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
-FetchContent_MakeAvailable(glfw imgui tinyobjloader stb imgui_file_dialog)
+# GLM (header-only math library)
+set(GLM_TEST_ENABLE OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG        1.0.3
+    GIT_SHALLOW    TRUE
+)
+
+FetchContent_MakeAvailable(glfw imgui tinyobjloader stb imgui_file_dialog glm)
 
 # ---------------------------------------------------------------------------
 # GLAD (pre-generated OpenGL 3.3 core loader in external/glad)
@@ -130,5 +139,14 @@ target_link_libraries(tiny_renderer PRIVATE
     ImGuiFileDialog
     tinyobjloader
     stb
+    glm
     OpenGL::GL
+)
+
+# Keep assets next to the executable so packaged builds work regardless of the
+# process working directory.
+add_custom_command(TARGET tiny_renderer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets
+            $<TARGET_FILE_DIR:tiny_renderer>/assets
 )

@@ -11,7 +11,7 @@ struct GLFWwindow;
 // Owns the window, renderer state, UI and the asset-loading operations.
 class Application {
 public:
-  Application();
+  explicit Application(const char *executablePath = nullptr);
   ~Application();
 
   Application(const Application &) = delete;
@@ -30,11 +30,17 @@ private:
   void loadMetallicMap(const std::filesystem::path &path);
   void loadRoughnessMap(const std::filesystem::path &path);
   void loadNormalMap(const std::filesystem::path &path);
+  void requestQuit();
+
+  // Relative asset paths are resolved against the executable directory so the
+  // app works regardless of the process working directory on Windows.
+  std::filesystem::path resolveAssetPath(const std::filesystem::path &path) const;
 
   static void glfwErrorCallback(int error, const char *description);
 
   GLFWwindow *window_{nullptr};
   bool glfwInitialized_{false};
+  std::filesystem::path executableDir_;
 
   AppState state_;
   ImGuiLayer ui_{state_};
